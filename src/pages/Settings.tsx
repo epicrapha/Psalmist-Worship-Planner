@@ -19,7 +19,7 @@ export function Settings() {
                     </div>
                     <div>
                         <h2 className="text-lg font-semibold">{user?.name}</h2>
-                        <p className="text-sm text-muted-foreground">{user?.role}</p>
+                        <p className="text-sm text-muted-foreground">{user?.roles?.[0] || 'Member'}</p>
                     </div>
                 </CardContent>
             </Card>

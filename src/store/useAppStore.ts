@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Song, ServicePlan, TeamMember, User } from '../types';
+import type { Song, ServicePlan, TeamMember, User, RoleDefinition } from '../types';
 
 interface Notification {
     id: string;
@@ -14,7 +14,7 @@ interface AppState {
     songs: Song[];
     plans: ServicePlan[];
     team: TeamMember[];
-    customRoles: string[];
+    customRoles: RoleDefinition[];
     customTags: string[];
     venues: string[];
     notifications: Notification[];
@@ -28,8 +28,10 @@ interface AppState {
     addTeamMember: (member: TeamMember) => void;
     updateTeamMember: (id: string, member: Partial<TeamMember>) => void;
     deleteTeamMember: (id: string) => void;
-    addCustomRole: (role: string) => void;
-    updateCustomRole: (oldRole: string, newRole: string) => void;
+    addCustomRole: (role: RoleDefinition) => void;
+    updateCustomRole: (id: string, role: Partial<RoleDefinition>) => void;
+    deleteCustomRole: (id: string) => void;
+    reorderRoles: (roles: RoleDefinition[]) => void;
     addCustomTag: (tag: string) => void;
     updateCustomTag: (oldTag: string, newTag: string) => void;
     addVenue: (venue: string) => void;
@@ -105,15 +107,32 @@ const MOCK_PLANS: ServicePlan[] = [
             { id: 'p3', type: 'song', itemId: '2', title: '10,000 Reasons', duration: 240 },
             { id: 'p4', type: 'media', title: 'Announcements Video', duration: 180 },
             { id: 'p5', type: 'song', itemId: '4', title: 'Build My Life', duration: 360 },
+        ],
+        team: [
+            { memberId: 'u1', role: 'Worship Leader' },
+            { memberId: 'u2', role: 'Vocalist' },
+            { memberId: 'u3', role: 'Guitarist' },
+            { memberId: 'u4', role: 'Drummer' }
         ]
     }
 ];
 
+const DEFAULT_ROLES: RoleDefinition[] = [
+    { id: 'admin', name: 'Admin', color: 'bg-red-500', icon: 'Shield', order: 0 },
+    { id: 'leader', name: 'Worship Leader', color: 'bg-orange-500', icon: 'Mic2', order: 1 },
+    { id: 'vocal', name: 'Vocalist', color: 'bg-pink-500', icon: 'Mic', order: 2 },
+    { id: 'guitar', name: 'Guitarist', color: 'bg-blue-500', icon: 'Guitar', order: 3 },
+    { id: 'keys', name: 'Keyboardist', color: 'bg-purple-500', icon: 'Piano', order: 4 },
+    { id: 'drums', name: 'Drummer', color: 'bg-yellow-500', icon: 'Drum', order: 5 },
+    { id: 'bass', name: 'Bassist', color: 'bg-indigo-500', icon: 'Music4', order: 6 },
+    { id: 'media', name: 'Media', color: 'bg-green-500', icon: 'Monitor', order: 7 },
+];
+
 const MOCK_TEAM: TeamMember[] = [
-    { id: 'u1', name: 'Raphael', avatar: 'https://i.pravatar.cc/150?u=u1', role: 'Admin', availability: {} },
-    { id: 'u2', name: 'Sarah', avatar: 'https://i.pravatar.cc/150?u=u2', role: 'Leader', availability: {} },
-    { id: 'u3', name: 'John', avatar: 'https://i.pravatar.cc/150?u=u3', role: 'Member', availability: {} },
-    { id: 'u4', name: 'Emily', avatar: 'https://i.pravatar.cc/150?u=u4', role: 'Member', availability: {} },
+    { id: 'u1', name: 'Raphael', avatar: 'https://i.pravatar.cc/150?u=u1', roles: ['Admin', 'Worship Leader'], availability: {} },
+    { id: 'u2', name: 'Sarah', avatar: 'https://i.pravatar.cc/150?u=u2', roles: ['Worship Leader', 'Vocalist'], availability: {} },
+    { id: 'u3', name: 'John', avatar: 'https://i.pravatar.cc/150?u=u3', roles: ['Guitarist'], availability: {} },
+    { id: 'u4', name: 'Emily', avatar: 'https://i.pravatar.cc/150?u=u4', roles: ['Drummer'], availability: {} },
 ];
 
 export const useAppStore = create<AppState>((set) => ({
@@ -121,7 +140,7 @@ export const useAppStore = create<AppState>((set) => ({
     songs: MOCK_SONGS,
     plans: MOCK_PLANS,
     team: MOCK_TEAM,
-    customRoles: ['Admin', 'Leader', 'Member', 'Vocalist', 'Guitarist', 'Drummer', 'Keyboardist', 'Bass'],
+    customRoles: DEFAULT_ROLES,
     customTags: ['Worship', 'Contemporary', 'Hymn', 'Fast', 'Slow', 'Intimate', 'Praise', 'Gospel'],
     venues: ['Main Sanctuary', 'Chapel', 'Youth Hall', 'Outdoor Pavilion'],
     notifications: [
@@ -151,11 +170,15 @@ export const useAppStore = create<AppState>((set) => ({
         team: state.team.filter((m) => m.id !== id)
     })),
     addCustomRole: (role) => set((state) => ({
-        customRoles: state.customRoles.includes(role) ? state.customRoles : [...state.customRoles, role]
+        customRoles: [...state.customRoles, role]
     })),
-    updateCustomRole: (oldRole, newRole) => set((state) => ({
-        customRoles: state.customRoles.map(r => r === oldRole ? newRole : r)
+    updateCustomRole: (id, role) => set((state) => ({
+        customRoles: state.customRoles.map(r => r.id === id ? { ...r, ...role } : r)
     })),
+    deleteCustomRole: (id) => set((state) => ({
+        customRoles: state.customRoles.filter(r => r.id !== id)
+    })),
+    reorderRoles: (roles) => set({ customRoles: roles }),
     addCustomTag: (tag) => set((state) => ({
         customTags: state.customTags.includes(tag) ? state.customTags : [...state.customTags, tag]
     })),

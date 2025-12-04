@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { Dialog } from '../ui/dialog';
 import type { TeamMember } from '../../types';
-import { Plus, Trash2 } from 'lucide-react';
+import { Trash2, Check } from 'lucide-react';
+import { cn } from '../../lib/utils';
 
 interface EditMemberDialogProps {
     isOpen: boolean;
@@ -11,22 +12,13 @@ interface EditMemberDialogProps {
 }
 
 export function EditMemberDialog({ isOpen, onClose, member }: EditMemberDialogProps) {
-    const { updateTeamMember, deleteTeamMember, customRoles, addCustomRole } = useAppStore();
+    const { updateTeamMember, deleteTeamMember, customRoles } = useAppStore();
     const [name, setName] = useState(member.name);
-    const [role, setRole] = useState(member.role);
-    const [isAddingRole, setIsAddingRole] = useState(false);
-    const [newRoleValue, setNewRoleValue] = useState('');
-    const newRoleInputRef = useRef<HTMLInputElement>(null);
-
-    useEffect(() => {
-        if (isAddingRole && newRoleInputRef.current) {
-            newRoleInputRef.current.focus();
-        }
-    }, [isAddingRole]);
+    const [selectedRoles, setSelectedRoles] = useState<string[]>(member.roles || []);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        updateTeamMember(member.id, { name, role });
+        updateTeamMember(member.id, { name, roles: selectedRoles });
         onClose();
     };
 
@@ -37,13 +29,12 @@ export function EditMemberDialog({ isOpen, onClose, member }: EditMemberDialogPr
         }
     };
 
-    const handleAddRole = () => {
-        if (newRoleValue.trim()) {
-            addCustomRole(newRoleValue.trim());
-            setRole(newRoleValue.trim());
-            setNewRoleValue('');
-            setIsAddingRole(false);
-        }
+    const toggleRole = (roleName: string) => {
+        setSelectedRoles(prev =>
+            prev.includes(roleName)
+                ? prev.filter(r => r !== roleName)
+                : [...prev, roleName]
+        );
     };
 
     return (
@@ -64,38 +55,24 @@ export function EditMemberDialog({ isOpen, onClose, member }: EditMemberDialogPr
 
                 {/* Role Picker */}
                 <div className="space-y-2">
-                    <label className="text-sm font-medium block">Role</label>
+                    <label className="text-sm font-medium block">Roles</label>
                     <div className="flex flex-wrap gap-2">
                         {customRoles.map(r => (
                             <button
-                                key={r}
+                                key={r.id}
                                 type="button"
-                                onClick={() => setRole(r)}
-                                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${role === r ? 'bg-primary text-primary-foreground' : 'bg-secondary hover:bg-secondary/80'}`}
+                                onClick={() => toggleRole(r.name)}
+                                className={cn(
+                                    "px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-1",
+                                    selectedRoles.includes(r.name)
+                                        ? "bg-primary text-primary-foreground"
+                                        : "bg-secondary hover:bg-secondary/80"
+                                )}
                             >
-                                {r}
+                                {selectedRoles.includes(r.name) && <Check className="w-3 h-3" />}
+                                {r.name}
                             </button>
                         ))}
-                        {isAddingRole ? (
-                            <input
-                                ref={newRoleInputRef}
-                                type="text"
-                                placeholder="Role name"
-                                className="px-3 py-1.5 rounded-full text-sm font-medium bg-secondary border border-primary w-28"
-                                value={newRoleValue}
-                                onChange={(e) => setNewRoleValue(e.target.value)}
-                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddRole(); } else if (e.key === 'Escape') { setIsAddingRole(false); setNewRoleValue(''); } }}
-                                onBlur={() => { if (!newRoleValue.trim()) setIsAddingRole(false); }}
-                            />
-                        ) : (
-                            <button
-                                type="button"
-                                onClick={() => setIsAddingRole(true)}
-                                className="px-3 py-1.5 rounded-full text-sm font-medium bg-secondary hover:bg-secondary/80 flex items-center gap-1"
-                            >
-                                <Plus className="w-3 h-3" />
-                            </button>
-                        )}
                     </div>
                 </div>
 

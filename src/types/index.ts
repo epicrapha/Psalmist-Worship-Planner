@@ -1,10 +1,18 @@
 export type Theme = 'light' | 'dark' | 'system';
 
+export interface RoleDefinition {
+    id: string;
+    name: string;
+    color: string;
+    icon: string; // Lucide icon name
+    order: number;
+}
+
 export interface User {
     id: string;
     name: string;
     avatar: string;
-    role: string; // Custom roles allowed
+    roles: string[]; // Array of RoleDefinition IDs or names
 }
 
 export interface Song {
@@ -30,12 +38,18 @@ export interface PlanItem {
     notes?: string;
 }
 
+export interface PlanTeamMember {
+    memberId: string;
+    role: string; // Role name/ID for this specific event
+}
+
 export interface ServicePlan {
     id: string;
     date: string;
     title: string;
     leaderId: string;
     items: PlanItem[];
+    team: PlanTeamMember[];
 }
 
 export interface TeamMember extends User {

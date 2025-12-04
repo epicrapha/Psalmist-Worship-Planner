@@ -11,7 +11,7 @@ interface HeroCardProps {
 
 export function HeroCard({ nextService }: HeroCardProps) {
     const navigate = useNavigate();
-    const { team } = useAppStore();
+    const { team, user } = useAppStore();
     const serviceDate = new Date(nextService.date);
 
     // Mock assignments for the current user
@@ -70,7 +70,7 @@ export function HeroCard({ nextService }: HeroCardProps) {
                     </button>
                     <div className="flex items-center gap-2">
                         <span className="text-sm font-medium bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm">
-                            {userAssignments[0]}
+                            {user?.roles?.[0] || 'Member'}
                             {otherTasks > 0 && <span className="opacity-80">, +{otherTasks} more</span>}
                         </span>
                     </div>

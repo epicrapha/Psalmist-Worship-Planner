@@ -10,7 +10,11 @@ interface PlanTimelineProps {
 
 export function PlanTimeline({ items, onReorder }: PlanTimelineProps) {
     const sensors = useSensors(
-        useSensor(PointerSensor),
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8,
+            },
+        }),
         useSensor(KeyboardSensor, {
             coordinateGetter: sortableKeyboardCoordinates,
         })

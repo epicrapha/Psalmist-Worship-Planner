@@ -31,6 +31,7 @@ export function AddEventDialog({ isOpen, onClose }: AddEventDialogProps) {
             date: dateTime.toISOString(),
             leaderId: user?.id || 'unknown',
             items: [],
+            team: [],
         };
         addPlan(newPlan);
         onClose();
@@ -213,7 +214,7 @@ export function AddEventDialog({ isOpen, onClose }: AddEventDialogProps) {
                                         <img src={member.avatar} alt={member.name} className="w-8 h-8 rounded-full" />
                                         <div className="text-left flex-1">
                                             <div className="font-medium text-sm">{member.name}</div>
-                                            <div className="text-xs text-muted-foreground">{member.role}</div>
+                                            <div className="text-xs text-muted-foreground">{member.roles?.[0] || 'Member'}</div>
                                         </div>
                                         {selectedTeam.includes(member.id) && (
                                             <div className="w-5 h-5 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs">✓</div>

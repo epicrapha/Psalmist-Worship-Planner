@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Search, SlidersHorizontal, Grid, List, ChevronDown } from 'lucide-react';
+import { Search, SlidersHorizontal, Grid, List, ArrowUpDown } from 'lucide-react';
 import { SongCard } from '../components/library/SongCard';
 import { useAppStore } from '../store/useAppStore';
 import { cn } from '../lib/utils';
 import { Card, CardContent } from '../components/ui/card';
 import { useNavigate } from 'react-router-dom';
+
+type SortOption = 'title' | 'artist' | 'key' | 'bpm';
 
 export function Library() {
     const navigate = useNavigate();
@@ -14,6 +16,10 @@ export function Library() {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
     const [showFilters, setShowFilters] = useState(false);
+
+    // Sorting
+    const [sortBy, setSortBy] = useState<SortOption>('title');
+    const [sortAsc, setSortAsc] = useState(true);
 
     // Filter songs based on search and tags
     const filteredSongs = songs.filter(song => {
@@ -26,10 +32,36 @@ export function Library() {
             selectedFilters.some(filter => song.tags.includes(filter) || song.key === filter);
 
         return matchesSearch && matchesTags;
+    }).sort((a, b) => {
+        let comparison = 0;
+        switch (sortBy) {
+            case 'title':
+                comparison = a.title.localeCompare(b.title);
+                break;
+            case 'artist':
+                comparison = a.artist.localeCompare(b.artist);
+                break;
+            case 'key':
+                comparison = a.key.localeCompare(b.key);
+                break;
+            case 'bpm':
+                comparison = a.bpm - b.bpm;
+                break;
+        }
+        return sortAsc ? comparison : -comparison;
     });
 
     const toggleFilter = (filter: string) => {
         setSelectedFilters(prev => prev.includes(filter) ? prev.filter(f => f !== filter) : [...prev, filter]);
+    };
+
+    const handleSort = (option: SortOption) => {
+        if (sortBy === option) {
+            setSortAsc(!sortAsc);
+        } else {
+            setSortBy(option);
+            setSortAsc(true);
+        }
     };
 
     const allFilters = [...new Set([...customTags, 'Key of C', 'Key of G', 'Key of D', 'Key of A', 'Key of E'])];
@@ -71,7 +103,15 @@ export function Library() {
                             className="w-full h-10 pl-9 pr-4 rounded-xl bg-secondary/50 border-transparent focus:bg-background focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-sm"
                         />
                     </div>
+
                     <div className="flex bg-secondary rounded-lg p-0.5">
+                        <button
+                            onClick={() => setShowFilters(!showFilters)}
+                            className={cn("p-2 rounded-md transition-colors", showFilters ? "bg-background shadow-sm text-primary" : "text-muted-foreground")}
+                        >
+                            <SlidersHorizontal className="w-4 h-4" />
+                        </button>
+                        <div className="w-px bg-border my-1 mx-0.5" />
                         <button onClick={() => setViewMode('list')} className={cn("p-2 rounded-md transition-colors", viewMode === 'list' ? "bg-background shadow-sm" : "text-muted-foreground")}>
                             <List className="w-4 h-4" />
                         </button>
@@ -80,26 +120,32 @@ export function Library() {
                         </button>
                     </div>
                 </div>
-                <div className="flex items-center space-x-2 overflow-x-auto scrollbar-hide pb-1">
-                    <button
-                        onClick={() => setShowFilters(!showFilters)}
-                        className={cn("p-2 rounded-lg transition-colors flex items-center gap-1", showFilters ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground hover:bg-secondary/80")}
-                    >
-                        <SlidersHorizontal className="w-4 h-4" />
-                        <ChevronDown className={cn("w-3 h-3 transition-transform", showFilters && "rotate-180")} />
-                    </button>
-                    {selectedFilters.map((filter) => (
+
+                {/* Sort Options */}
+                <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">Sort by:</span>
+                    {['title', 'artist', 'key', 'bpm'].map((option) => (
                         <button
-                            key={filter}
-                            onClick={() => toggleFilter(filter)}
-                            className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium whitespace-nowrap transition-colors"
+                            key={option}
+                            onClick={() => handleSort(option as SortOption)}
+                            className={cn(
+                                "px-3 py-1.5 rounded-full text-xs font-medium transition-colors flex items-center gap-1 capitalize",
+                                sortBy === option
+                                    ? "bg-primary text-primary-foreground"
+                                    : "bg-secondary hover:bg-secondary/80"
+                            )}
                         >
-                            {filter} ✕
+                            {option}
+                            {sortBy === option && (
+                                <ArrowUpDown className={cn("w-3 h-3 transition-transform", !sortAsc && "rotate-180")} />
+                            )}
                         </button>
                     ))}
                 </div>
+
                 {showFilters && (
-                    <div className="flex flex-wrap gap-2 p-3 bg-secondary/30 rounded-xl border border-border">
+                    <div className="flex flex-wrap gap-2 p-3 bg-secondary/30 rounded-xl border border-border animate-in slide-in-from-top-2">
+                        <div className="w-full text-xs font-medium text-muted-foreground mb-1">Filters</div>
                         {allFilters.map((filter) => (
                             <button
                                 key={filter}
