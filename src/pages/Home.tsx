@@ -6,8 +6,13 @@ import { NotificationCard, MetricsCard } from '../components/home/DashboardCards
 import { useAppStore } from '../store/useAppStore';
 
 export function Home() {
-    const { user, plans, songs } = useAppStore();
-    const nextService = plans[0];
+    const { user, teams, currentTeamId } = useAppStore();
+    const currentTeam = teams.find(t => t.id === currentTeamId);
+    const plans = currentTeam?.plans || [];
+    const songs = currentTeam?.songs || [];
+    const nextService = plans
+        .filter(plan => new Date(plan.date) >= new Date(new Date().setHours(0, 0, 0, 0)))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0];
 
     // Get greeting based on time
     const getGreeting = () => {
@@ -34,20 +39,39 @@ export function Home() {
                 </button>
             </div>
 
-            {/* Hero */}
-            {nextService && <HeroCard nextService={nextService} />}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Main Content (Left Column) */}
+                <div className="lg:col-span-2 space-y-8">
+                    {/* Hero Section - Single Upcoming Card */}
+                    {nextService && (
+                        <div className="px-1">
+                            <HeroCard nextService={nextService} />
+                        </div>
+                    )}
 
-            {/* Notifications */}
-            <NotificationCard />
+                    {/* Recent Songs */}
+                    <div className="hidden lg:block">
+                        <RecentSongs songs={songs} />
+                    </div>
+                </div>
 
-            {/* Quick Actions */}
-            <QuickActions />
+                {/* Sidebar (Right Column) */}
+                <div className="space-y-6">
+                    {/* Notifications */}
+                    <NotificationCard />
 
-            {/* Dashboard Metrics */}
-            <MetricsCard />
+                    {/* Quick Actions */}
+                    <QuickActions />
 
-            {/* Recent Songs */}
-            <RecentSongs songs={songs} />
+                    {/* Dashboard Metrics */}
+                    <MetricsCard />
+                </div>
+
+                {/* Recent Songs Mobile (Bottom) */}
+                <div className="lg:hidden">
+                    <RecentSongs songs={songs} />
+                </div>
+            </div>
         </div>
     );
 }

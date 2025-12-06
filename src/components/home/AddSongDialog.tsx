@@ -12,7 +12,9 @@ interface AddSongDialogProps {
 }
 
 export function AddSongDialog({ isOpen, onClose }: AddSongDialogProps) {
-    const { addSong, customTags, addCustomTag } = useAppStore();
+    const { addSong, teams, currentTeamId, addCustomTag } = useAppStore();
+    const currentTeam = teams.find(t => t.id === currentTeamId);
+    const customTags = currentTeam?.customTags || [];
     const [formData, setFormData] = useState({
         title: '',
         artist: '',

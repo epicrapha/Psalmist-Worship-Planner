@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import type { ServicePlan } from '../../types';
 import { useAppStore } from '../../store/useAppStore';
+import * as Icons from 'lucide-react';
+import { cn } from '../../lib/utils';
 
 interface HeroCardProps {
     nextService: ServicePlan;
@@ -11,7 +13,9 @@ interface HeroCardProps {
 
 export function HeroCard({ nextService }: HeroCardProps) {
     const navigate = useNavigate();
-    const { team, user } = useAppStore();
+    const { teams, currentTeamId, user } = useAppStore();
+    const currentTeam = teams.find(t => t.id === currentTeamId);
+    const team = currentTeam?.members || [];
     const serviceDate = new Date(nextService.date);
 
     // Mock assignments for the current user
@@ -21,34 +25,46 @@ export function HeroCard({ nextService }: HeroCardProps) {
     return (
         <Card
             onClick={() => navigate('/events')}
-            className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground border-none overflow-hidden relative cursor-pointer hover:shadow-xl transition-shadow"
+            className={cn(
+                "border-none overflow-hidden relative cursor-pointer hover:shadow-xl transition-shadow text-white",
+                // Use the event color as background, or fallback to primary
+                nextService.color ? nextService.color : "bg-primary"
+            )}
         >
+            {/* Ambient gradients overlapping the solid color */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
             <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full -ml-12 -mb-12 blur-xl" />
 
             <CardHeader className="pb-2 relative z-10">
                 <div className="flex justify-between items-start">
                     <div>
-                        <p className="text-primary-foreground/80 text-sm font-medium uppercase tracking-wider">Upcoming Event</p>
-                        <CardTitle className="text-3xl mt-1">{nextService.title}</CardTitle>
+                        <p className="text-white/80 text-sm font-medium uppercase tracking-wider">Upcoming Event</p>
+                        <CardTitle className="text-3xl mt-1 text-white">{nextService.title}</CardTitle>
                     </div>
-                    <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
-                        <Calendar className="w-6 h-6" />
+                    <div className="p-2 rounded-lg backdrop-blur-sm bg-white/20 text-white">
+                        {nextService.icon && (Icons as any)[nextService.icon] ? (
+                            (() => {
+                                const Icon = (Icons as any)[nextService.icon];
+                                return <Icon className="w-6 h-6" />;
+                            })()
+                        ) : (
+                            <Calendar className="w-6 h-6" />
+                        )}
                     </div>
                 </div>
             </CardHeader>
 
             <CardContent className="relative z-10">
-                <div className="space-y-3 mt-4">
-                    <div className="flex items-center space-x-3 text-primary-foreground/90">
-                        <Clock className="w-5 h-5" />
-                        <span className="text-lg font-medium">
+                <div className="space-y-2 mt-4">
+                    <div className="flex items-center space-x-3 text-white/90">
+                        <Clock className="w-5 h-5 flex-shrink-0" />
+                        <span className="text-base font-medium">
                             {format(serviceDate, 'EEEE, MMMM do')} • {format(serviceDate, 'h:mm a')}
                         </span>
                     </div>
-                    <div className="flex items-center space-x-3 text-primary-foreground/80">
-                        <MapPin className="w-5 h-5" />
-                        <span>Main Sanctuary</span>
+                    <div className="flex items-center space-x-3 text-white/90">
+                        <MapPin className="w-5 h-5 flex-shrink-0" />
+                        <span className="text-base font-medium">Main Sanctuary</span>
                     </div>
                 </div>
 

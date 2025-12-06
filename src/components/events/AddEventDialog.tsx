@@ -1,37 +1,79 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { Dialog } from '../ui/dialog';
 import type { ServicePlan } from '../../types';
 import { ChevronDown, Plus, Calendar, Clock } from 'lucide-react';
+import { ColorIconPicker } from '../ui/ColorIconPicker';
 
 interface AddEventDialogProps {
     isOpen: boolean;
     onClose: () => void;
+    initialDate?: string;
 }
 
-export function AddEventDialog({ isOpen, onClose }: AddEventDialogProps) {
-    const { addPlan, team, venues, addVenue, user } = useAppStore();
+export function AddEventDialog({ isOpen, onClose, initialDate }: AddEventDialogProps) {
+    const { addPlan, teams, currentTeamId, addVenue, user } = useAppStore();
+    const currentTeam = teams.find(t => t.id === currentTeamId);
+    const team = currentTeam?.members || [];
+    const venues = currentTeam?.venues || [];
     const [title, setTitle] = useState('');
     const [date, setDate] = useState('');
     const [time, setTime] = useState('09:00');
     const [venue, setVenue] = useState('');
     const [selectedTeam, setSelectedTeam] = useState<string[]>([]);
-    const [showVenuePicker, setShowVenuePicker] = useState(false);
-    const [showTeamPicker, setShowTeamPicker] = useState(false);
     const [newVenue, setNewVenue] = useState('');
-    const [showDatePicker, setShowDatePicker] = useState(false);
-    const [showTimePicker, setShowTimePicker] = useState(false);
+
+    // Customization
+    const [color, setColor] = useState('bg-blue-500');
+    const [icon, setIcon] = useState('Calendar');
+
+    // UI State for pickers - using simplified logic to avoid clicks closing immediately
+    const [activePicker, setActivePicker] = useState<'none' | 'venue' | 'team'>('none');
+
+    useEffect(() => {
+        if (isOpen && initialDate) {
+            setDate(initialDate);
+        } else if (isOpen && !date) {
+            // Only reset if empty and no initial date, or keep previous logic?
+            // Actually, let's just respect initialDate if provided when opening
+        }
+    }, [isOpen, initialDate]);
+
+    const wrapperRef = useRef<HTMLFormElement>(null);
+
+    // Click outside handler
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+                // Don't close if clicking inside a dialog portal (implied)
+                // For now, simpler: let interactions handle their own close
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         const dateTime = new Date(`${date}T${time}`);
+        // Map selected IDs to team objects with default role
+        const teamAssignments = selectedTeam.map(memberId => {
+            const member = team.find(m => m.id === memberId);
+            return {
+                memberId,
+                role: member?.roles?.[0] || 'Member'
+            };
+        });
+
         const newPlan: ServicePlan = {
             id: Math.random().toString(36).substr(2, 9),
             title,
             date: dateTime.toISOString(),
             leaderId: user?.id || 'unknown',
             items: [],
-            team: [],
+            team: teamAssignments,
+            color,
+            icon,
         };
         addPlan(newPlan);
         onClose();
@@ -44,6 +86,9 @@ export function AddEventDialog({ isOpen, onClose }: AddEventDialogProps) {
         setTime('09:00');
         setVenue('');
         setSelectedTeam([]);
+        setColor('bg-blue-500');
+        setIcon('Calendar');
+        setActivePicker('none');
     };
 
     const handleAddVenue = () => {
@@ -51,7 +96,7 @@ export function AddEventDialog({ isOpen, onClose }: AddEventDialogProps) {
             addVenue(newVenue.trim());
             setVenue(newVenue.trim());
             setNewVenue('');
-            setShowVenuePicker(false);
+            setActivePicker('none');
         }
     };
 
@@ -61,16 +106,9 @@ export function AddEventDialog({ isOpen, onClose }: AddEventDialogProps) {
         );
     };
 
-    const closeAllPickers = () => {
-        setShowVenuePicker(false);
-        setShowTeamPicker(false);
-        setShowDatePicker(false);
-        setShowTimePicker(false);
-    };
-
     return (
         <Dialog isOpen={isOpen} onClose={onClose} title="Create New Event">
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-5" ref={wrapperRef}>
                 {/* Title */}
                 <div className="space-y-2">
                     <label className="text-sm font-medium block">Event Title</label>
@@ -83,53 +121,41 @@ export function AddEventDialog({ isOpen, onClose }: AddEventDialogProps) {
                     />
                 </div>
 
+                {/* Appearance */}
+                <ColorIconPicker
+                    color={color}
+                    icon={icon}
+                    onColorChange={setColor}
+                    onIconChange={setIcon}
+                />
+
                 {/* Date & Time */}
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2 relative">
+                    <div className="space-y-2">
                         <label className="text-sm font-medium block">Date</label>
-                        <button
-                            type="button"
-                            onClick={() => { closeAllPickers(); setShowDatePicker(!showDatePicker); }}
-                            className="w-full p-3 rounded-lg border border-input bg-background flex items-center justify-between"
-                        >
-                            <span className={date ? '' : 'text-muted-foreground'}>
-                                {date ? new Date(date).toLocaleDateString() : 'Select date'}
-                            </span>
-                            <Calendar className="w-4 h-4 text-muted-foreground" />
-                        </button>
-                        {showDatePicker && (
-                            <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-background border border-border rounded-lg shadow-lg p-3">
-                                <input
-                                    type="date"
-                                    className="w-full p-2 rounded-md border border-input bg-background"
-                                    value={date}
-                                    onChange={(e) => { setDate(e.target.value); setShowDatePicker(false); }}
-                                    autoFocus
-                                />
-                            </div>
-                        )}
+                        <div className="relative">
+                            <input
+                                type="date"
+                                required
+                                className="w-full p-3 rounded-lg border border-input bg-background [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                                value={date}
+                                onChange={(e) => setDate(e.target.value)}
+                            />
+                            <Calendar className="w-4 h-4 text-muted-foreground absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
                     </div>
-                    <div className="space-y-2 relative">
+                    <div className="space-y-2">
                         <label className="text-sm font-medium block">Time</label>
-                        <button
-                            type="button"
-                            onClick={() => { closeAllPickers(); setShowTimePicker(!showTimePicker); }}
-                            className="w-full p-3 rounded-lg border border-input bg-background flex items-center justify-between"
-                        >
-                            <span>{time}</span>
-                            <Clock className="w-4 h-4 text-muted-foreground" />
-                        </button>
-                        {showTimePicker && (
-                            <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-background border border-border rounded-lg shadow-lg p-3">
-                                <input
-                                    type="time"
-                                    className="w-full p-2 rounded-md border border-input bg-background"
-                                    value={time}
-                                    onChange={(e) => { setTime(e.target.value); setShowTimePicker(false); }}
-                                    autoFocus
-                                />
-                            </div>
-                        )}
+                        <div className="relative">
+                            <input
+                                type="time"
+                                required
+                                className="w-full p-3 rounded-lg border border-input bg-background [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                                value={time}
+                                onChange={(e) => setTime(e.target.value)}
+                            />
+                            <Clock className="w-4 h-4 text-muted-foreground absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
                     </div>
                 </div>
 
@@ -138,20 +164,20 @@ export function AddEventDialog({ isOpen, onClose }: AddEventDialogProps) {
                     <label className="text-sm font-medium block">Venue</label>
                     <button
                         type="button"
-                        onClick={() => { closeAllPickers(); setShowVenuePicker(!showVenuePicker); }}
+                        onClick={() => setActivePicker(activePicker === 'venue' ? 'none' : 'venue')}
                         className="w-full p-3 rounded-lg border border-input bg-background flex justify-between items-center"
                     >
                         <span className={venue ? '' : 'text-muted-foreground'}>{venue || 'Select venue'}</span>
                         <ChevronDown className="w-4 h-4 text-muted-foreground" />
                     </button>
-                    {showVenuePicker && (
+                    {activePicker === 'venue' && (
                         <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-background border border-border rounded-lg shadow-lg p-3 max-h-48 overflow-y-auto">
                             <div className="flex flex-wrap gap-2 mb-3">
                                 {venues.map(v => (
                                     <button
                                         key={v}
                                         type="button"
-                                        onClick={() => { setVenue(v); setShowVenuePicker(false); }}
+                                        onClick={() => { setVenue(v); setActivePicker('none'); }}
                                         className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${venue === v ? 'bg-primary text-primary-foreground' : 'bg-secondary hover:bg-secondary/80'}`}
                                     >
                                         {v}
@@ -184,7 +210,7 @@ export function AddEventDialog({ isOpen, onClose }: AddEventDialogProps) {
                     <label className="text-sm font-medium block">Team Members</label>
                     <button
                         type="button"
-                        onClick={() => { closeAllPickers(); setShowTeamPicker(!showTeamPicker); }}
+                        onClick={() => setActivePicker(activePicker === 'team' ? 'none' : 'team')}
                         className="w-full p-3 rounded-lg border border-input bg-background flex justify-between items-center"
                     >
                         <div className="flex flex-wrap gap-1">
@@ -201,7 +227,7 @@ export function AddEventDialog({ isOpen, onClose }: AddEventDialogProps) {
                         </div>
                         <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                     </button>
-                    {showTeamPicker && (
+                    {activePicker === 'team' && (
                         <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-background border border-border rounded-lg shadow-lg p-3 max-h-48 overflow-y-auto">
                             <div className="space-y-2">
                                 {team.map(member => (
@@ -229,7 +255,8 @@ export function AddEventDialog({ isOpen, onClose }: AddEventDialogProps) {
                 <div className="pt-4 flex justify-end">
                     <button
                         type="submit"
-                        className="px-6 py-2.5 text-sm font-medium bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+                        disabled={!title || !date || !time}
+                        className="px-6 py-2.5 text-sm font-medium bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors disabled:opacity-50"
                     >
                         Create Event
                     </button>

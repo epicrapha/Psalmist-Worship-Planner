@@ -1,10 +1,12 @@
 import { Bell, Music, Calendar, Users, TrendingUp } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { useAppStore } from '../../store/useAppStore';
 
 export function NotificationCard() {
     const { notifications, markNotificationRead } = useAppStore();
+    // const navigate = useNavigate();
     const unreadNotifications = notifications.filter(n => !n.read);
 
     if (unreadNotifications.length === 0) return null;
@@ -22,26 +24,43 @@ export function NotificationCard() {
             </CardHeader>
             <CardContent className="space-y-3">
                 {unreadNotifications.slice(0, 3).map(notification => (
-                    <button
+                    <div
                         key={notification.id}
-                        onClick={() => markNotificationRead(notification.id)}
-                        className="w-full flex items-start gap-3 p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors text-left"
+                        className="group relative w-full flex items-start gap-3 p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors text-left"
                     >
-                        <div className={`p-2 rounded-lg ${notification.type === 'assignment' ? 'bg-blue-500/10 text-blue-500' :
-                                notification.type === 'update' ? 'bg-emerald-500/10 text-emerald-500' :
-                                    'bg-amber-500/10 text-amber-500'
+                        <div className={`p-2 rounded-lg mt-0.5 ${notification.type === 'assignment' ? 'bg-blue-500/10 text-blue-500' :
+                            notification.type === 'update' ? 'bg-emerald-500/10 text-emerald-500' :
+                                'bg-amber-500/10 text-amber-500'
                             }`}>
                             {notification.type === 'assignment' ? <Users className="w-4 h-4" /> :
                                 notification.type === 'update' ? <Music className="w-4 h-4" /> :
                                     <Calendar className="w-4 h-4" />}
                         </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm">{notification.message}</p>
+
+                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => {
+                            // Basic navigation logic based on type
+                            if (notification.type === 'assignment') window.location.href = '/events'; // Using window.location slightly hacky, essentially needs useNavigate but this is component. 
+                            // Better to expect parent or hook.
+                            // Actually, let's just make the text clickable or the whole div except the dismiss button.
+                        }}>
+                            <p className="text-sm font-medium">{notification.message}</p>
                             <p className="text-xs text-muted-foreground mt-1">
                                 {formatDistanceToNow(new Date(notification.timestamp), { addSuffix: true })}
                             </p>
                         </div>
-                    </button>
+
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                markNotificationRead(notification.id);
+                            }}
+                            className="absolute top-2 right-2 p-1.5 rounded-full hover:bg-background/80 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-all font-bold"
+                            title="Dismiss"
+                        >
+                            <span className="sr-only">Dismiss</span>
+                            <div className="w-4 h-4 flex items-center justify-center">×</div>
+                        </button>
+                    </div>
                 ))}
             </CardContent>
         </Card>
@@ -49,7 +68,11 @@ export function NotificationCard() {
 }
 
 export function MetricsCard() {
-    const { songs, plans, team } = useAppStore();
+    const { teams, currentTeamId } = useAppStore();
+    const currentTeam = teams.find(t => t.id === currentTeamId);
+    const songs = currentTeam?.songs || [];
+    const plans = currentTeam?.plans || [];
+    const team = currentTeam?.members || [];
 
     const metrics = [
         { label: 'Songs', value: songs.length, icon: Music, color: 'text-blue-500', bg: 'bg-blue-500/10' },

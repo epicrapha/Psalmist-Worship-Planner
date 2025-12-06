@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Search, SlidersHorizontal, Grid, List, ArrowUpDown } from 'lucide-react';
+import { Search, SlidersHorizontal, Grid, List, ArrowUpDown, Plus } from 'lucide-react';
 import { SongCard } from '../components/library/SongCard';
 import { useAppStore } from '../store/useAppStore';
+import { usePermissions } from '../hooks/use-permissions';
 import { cn } from '../lib/utils';
 import { Card, CardContent } from '../components/ui/card';
 import { useNavigate } from 'react-router-dom';
@@ -10,7 +11,11 @@ type SortOption = 'title' | 'artist' | 'key' | 'bpm';
 
 export function Library() {
     const navigate = useNavigate();
-    const { songs, customTags } = useAppStore();
+    const { teams, currentTeamId } = useAppStore();
+    const { can } = usePermissions();
+    const currentTeam = teams.find(t => t.id === currentTeamId);
+    const songs = currentTeam?.songs || [];
+    const customTags = currentTeam?.customTags || [];
     const [activeTab, setActiveTab] = useState<'songs' | 'arrangements' | 'media'>('songs');
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [searchQuery, setSearchQuery] = useState('');
@@ -104,14 +109,14 @@ export function Library() {
                         />
                     </div>
 
+                    <button
+                        onClick={() => setShowFilters(!showFilters)}
+                        className={cn("p-2 rounded-lg transition-colors border border-border bg-secondary/50", showFilters ? "bg-primary/10 text-primary border-primary" : "text-muted-foreground hover:bg-secondary")}
+                    >
+                        <SlidersHorizontal className="w-4 h-4" />
+                    </button>
+
                     <div className="flex bg-secondary rounded-lg p-0.5">
-                        <button
-                            onClick={() => setShowFilters(!showFilters)}
-                            className={cn("p-2 rounded-md transition-colors", showFilters ? "bg-background shadow-sm text-primary" : "text-muted-foreground")}
-                        >
-                            <SlidersHorizontal className="w-4 h-4" />
-                        </button>
-                        <div className="w-px bg-border my-1 mx-0.5" />
                         <button onClick={() => setViewMode('list')} className={cn("p-2 rounded-md transition-colors", viewMode === 'list' ? "bg-background shadow-sm" : "text-muted-foreground")}>
                             <List className="w-4 h-4" />
                         </button>
@@ -212,6 +217,17 @@ export function Library() {
                     <p>No songs found</p>
                     <p className="text-sm mt-1">Try adjusting your search or filters</p>
                 </div>
+            )}
+
+            {/* FAB */}
+            {can('manage_library') && (
+                <button
+                    onClick={() => { /* TODO: Open Add Song Dialog */ alert('Add Song Dialog coming soon!'); }}
+                    className="fixed bottom-24 right-6 w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg flex items-center justify-center hover:bg-primary/90 transition-colors active:scale-95 z-40"
+                    title="Add Song"
+                >
+                    <Plus className="w-7 h-7" />
+                </button>
             )}
         </div>
     );

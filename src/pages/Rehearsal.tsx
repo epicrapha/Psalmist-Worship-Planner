@@ -4,11 +4,14 @@ import { ArrowLeft, Minus, Plus, Play, Pause, Settings2, Volume2, Pencil } from 
 import { useAppStore } from '../store/useAppStore';
 import { cn } from '../lib/utils';
 import { EditSongDialog } from '../components/library/EditSongDialog';
+import { parseChordProToSegments } from '../lib/chordpro';
 
 export function Rehearsal() {
     const { songId } = useParams();
     const navigate = useNavigate();
-    const { songs } = useAppStore();
+    const { teams, currentTeamId } = useAppStore();
+    const currentTeam = teams.find(t => t.id === currentTeamId);
+    const songs = currentTeam?.songs || [];
     const song = songs.find(s => s.id === songId);
 
     const [transpose, setTranspose] = useState(0);
@@ -44,15 +47,36 @@ export function Rehearsal() {
 
             {/* Main Content (Chord Chart) */}
             <div className="flex-1 p-4 overflow-y-auto" style={{ fontSize: `${fontSize}px` }}>
-                <pre className="font-mono whitespace-pre-wrap leading-relaxed">
-                    {song.lyrics.split('\n').map((line, i) => (
-                        <div key={i} className="mb-4">
-                            {/* Mock chord rendering logic - in real app, parse chords */}
-                            {i % 2 === 0 && <div className="text-primary font-bold mb-1 opacity-80">{song.chords}</div>}
-                            <div className="text-foreground">{line}</div>
+                <div className="font-mono whitespace-pre-wrap leading-relaxed max-w-4xl mx-auto">
+                    {parseChordProToSegments(song.lyrics).map((line, i) => (
+                        <div key={i} className="min-h-[1.5em] flex flex-wrap items-end mb-4">
+                            {line.type === 'header' ? (
+                                <div className="w-full font-bold text-primary mb-2 text-lg bg-secondary/30 p-1 rounded px-2 mt-4">
+                                    {line.segments[0].text}
+                                </div>
+                            ) : line.type === 'empty' ? (
+                                <div className="h-4 w-full" />
+                            ) : (
+                                line.segments.map((segment, j) => (
+                                    <div key={j} className="flex flex-col pr-1 min-w-[1ch]">
+                                        <div className="text-primary font-bold h-[1.2em] mb-0.5" style={{ fontSize: '0.9em' }}>
+                                            {segment.chord || '\u00A0'}
+                                        </div>
+                                        <div className="text-foreground whitespace-pre">
+                                            {segment.text || '\u00A0'}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     ))}
-                </pre>
+                    {/* Fallback if no lyrics */}
+                    {!song.lyrics && (
+                        <div className="text-center text-muted-foreground mt-20 italic">
+                            No lyrics or chord chart available. Tap the pencil icon to add content.
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Tools Footer */}

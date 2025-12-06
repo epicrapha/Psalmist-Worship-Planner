@@ -8,7 +8,7 @@ export function BottomNav() {
         { icon: Music, label: 'Library', path: '/library' },
         { icon: Calendar, label: 'Events', path: '/events' },
         { icon: Users, label: 'Teams', path: '/teams' },
-        { icon: User, label: 'Me', path: '/settings' },
+        { icon: User, label: 'Profile', path: '/profile' },
     ];
 
     return (

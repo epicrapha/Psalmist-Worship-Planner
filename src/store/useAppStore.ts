@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { Song, ServicePlan, TeamMember, User, RoleDefinition } from '../types';
+import { persist } from 'zustand/middleware';
+import type { Song, ServicePlan, TeamMember, User, RoleDefinition, RoleGroup, Team } from '../types';
 
 interface Notification {
     id: string;
@@ -11,14 +12,18 @@ interface Notification {
 
 interface AppState {
     user: User | null;
-    songs: Song[];
-    plans: ServicePlan[];
-    team: TeamMember[];
-    customRoles: RoleDefinition[];
-    customTags: string[];
-    venues: string[];
+    teams: Team[];
+    currentTeamId: string | null;
     notifications: Notification[];
+
+    // Global Actions
     setUser: (user: User | null) => void;
+    addTeam: (team: Team) => void;
+    updateTeam: (id: string, team: Partial<Team>) => void;
+    deleteTeam: (id: string) => void;
+    setCurrentTeam: (id: string) => void;
+
+    // Team Scoped Actions (operate on currentTeamId)
     addSong: (song: Song) => void;
     updateSong: (id: string, song: Partial<Song>) => void;
     deleteSong: (id: string) => void;
@@ -32,14 +37,35 @@ interface AppState {
     updateCustomRole: (id: string, role: Partial<RoleDefinition>) => void;
     deleteCustomRole: (id: string) => void;
     reorderRoles: (roles: RoleDefinition[]) => void;
+
+    addRoleGroup: (group: RoleGroup) => void;
+    updateRoleGroup: (id: string, group: Partial<RoleGroup>) => void;
+    deleteRoleGroup: (id: string) => void;
+    reorderRoleGroups: (groups: RoleGroup[]) => void;
+
     addCustomTag: (tag: string) => void;
     updateCustomTag: (oldTag: string, newTag: string) => void;
     addVenue: (venue: string) => void;
+
+    // Notifications
     addNotification: (notification: Notification) => void;
     markNotificationRead: (id: string) => void;
+
     spotifyConnected: boolean;
     setSpotifyConnected: (connected: boolean) => void;
 }
+
+// Mock Data Migration
+const DEFAULT_ROLES: RoleDefinition[] = [
+    { id: 'admin', name: 'Admin', color: 'bg-red-500', icon: 'Shield', order: 0, permissions: ['all'] },
+    { id: 'leader', name: 'Worship Leader', color: 'bg-orange-500', icon: 'Mic2', order: 1, permissions: ['manage_events', 'manage_library'] },
+    { id: 'vocal', name: 'Vocalist', color: 'bg-pink-500', icon: 'Mic', order: 2, permissions: ['view_events'] },
+    { id: 'guitar', name: 'Guitarist', color: 'bg-blue-500', icon: 'Guitar', order: 3, permissions: ['view_events'] },
+    { id: 'keys', name: 'Keyboardist', color: 'bg-purple-500', icon: 'Piano', order: 4, permissions: ['view_events'] },
+    { id: 'drums', name: 'Drummer', color: 'bg-yellow-500', icon: 'Drum', order: 5, permissions: ['view_events'] },
+    { id: 'bass', name: 'Bassist', color: 'bg-indigo-500', icon: 'Music4', order: 6, permissions: ['view_events'] },
+    { id: 'media', name: 'Media', color: 'bg-green-500', icon: 'Monitor', order: 7, permissions: ['manage_media'] },
+];
 
 const MOCK_SONGS: Song[] = [
     {
@@ -117,84 +143,166 @@ const MOCK_PLANS: ServicePlan[] = [
     }
 ];
 
-const DEFAULT_ROLES: RoleDefinition[] = [
-    { id: 'admin', name: 'Admin', color: 'bg-red-500', icon: 'Shield', order: 0 },
-    { id: 'leader', name: 'Worship Leader', color: 'bg-orange-500', icon: 'Mic2', order: 1 },
-    { id: 'vocal', name: 'Vocalist', color: 'bg-pink-500', icon: 'Mic', order: 2 },
-    { id: 'guitar', name: 'Guitarist', color: 'bg-blue-500', icon: 'Guitar', order: 3 },
-    { id: 'keys', name: 'Keyboardist', color: 'bg-purple-500', icon: 'Piano', order: 4 },
-    { id: 'drums', name: 'Drummer', color: 'bg-yellow-500', icon: 'Drum', order: 5 },
-    { id: 'bass', name: 'Bassist', color: 'bg-indigo-500', icon: 'Music4', order: 6 },
-    { id: 'media', name: 'Media', color: 'bg-green-500', icon: 'Monitor', order: 7 },
-];
-
-const MOCK_TEAM: TeamMember[] = [
+const MOCK_TEAM_MEMBERS: TeamMember[] = [
     { id: 'u1', name: 'Raphael', avatar: 'https://i.pravatar.cc/150?u=u1', roles: ['Admin', 'Worship Leader'], availability: {} },
     { id: 'u2', name: 'Sarah', avatar: 'https://i.pravatar.cc/150?u=u2', roles: ['Worship Leader', 'Vocalist'], availability: {} },
     { id: 'u3', name: 'John', avatar: 'https://i.pravatar.cc/150?u=u3', roles: ['Guitarist'], availability: {} },
     { id: 'u4', name: 'Emily', avatar: 'https://i.pravatar.cc/150?u=u4', roles: ['Drummer'], availability: {} },
 ];
 
-export const useAppStore = create<AppState>((set) => ({
-    user: MOCK_TEAM[0],
-    songs: MOCK_SONGS,
+const DEFAULT_TEAM: Team = {
+    id: 't1',
+    name: 'Worship Team',
+    icon: 'Music',
+    color: 'bg-primary',
+    members: MOCK_TEAM_MEMBERS,
+    roles: DEFAULT_ROLES,
+    roleGroups: [],
+    admins: ['u1'],
     plans: MOCK_PLANS,
-    team: MOCK_TEAM,
-    customRoles: DEFAULT_ROLES,
-    customTags: ['Worship', 'Contemporary', 'Hymn', 'Fast', 'Slow', 'Intimate', 'Praise', 'Gospel'],
+    songs: MOCK_SONGS,
     venues: ['Main Sanctuary', 'Chapel', 'Youth Hall', 'Outdoor Pavilion'],
+    customTags: ['Worship', 'Contemporary', 'Hymn', 'Fast', 'Slow', 'Intimate', 'Praise', 'Gospel'],
+};
+
+export const useAppStore = create<AppState>()(persist((set) => ({
+    user: MOCK_TEAM_MEMBERS[0],
+    teams: [DEFAULT_TEAM],
+    currentTeamId: 't1',
     notifications: [
         { id: 'n1', message: 'Admin assigned you as Worship Leader for Sunday Service', type: 'assignment', timestamp: new Date().toISOString(), read: false },
         { id: 'n2', message: 'Sarah added "Way Maker" to the song library', type: 'update', timestamp: new Date(Date.now() - 3600000).toISOString(), read: false },
     ],
+
     setUser: (user) => set({ user }),
-    addSong: (song) => set((state) => ({ songs: [...state.songs, song] })),
+
+    addTeam: (team) => set((state) => ({ teams: [...state.teams, team] })),
+    updateTeam: (id, team) => set((state) => ({
+        teams: state.teams.map(t => t.id === id ? { ...t, ...team } : t)
+    })),
+    deleteTeam: (id) => set((state) => ({
+        teams: state.teams.filter(t => t.id !== id),
+        currentTeamId: state.currentTeamId === id ? (state.teams.find(t => t.id !== id)?.id || null) : state.currentTeamId
+    })),
+    setCurrentTeam: (id) => set({ currentTeamId: id }),
+
+    // Helper to update current team
+    addSong: (song) => set((state) => ({
+        teams: state.teams.map(t => t.id === state.currentTeamId ? { ...t, songs: [...t.songs, song] } : t)
+    })),
     updateSong: (id, song) => set((state) => ({
-        songs: state.songs.map((s) => (s.id === id ? { ...s, ...song } : s))
+        teams: state.teams.map(t => t.id === state.currentTeamId ? {
+            ...t,
+            songs: t.songs.map(s => s.id === id ? { ...s, ...song } : s)
+        } : t)
     })),
     deleteSong: (id) => set((state) => ({
-        songs: state.songs.filter((s) => s.id !== id)
+        teams: state.teams.map(t => t.id === state.currentTeamId ? {
+            ...t,
+            songs: t.songs.filter(s => s.id !== id)
+        } : t)
     })),
-    addPlan: (plan) => set((state) => ({ plans: [...state.plans, plan] })),
+
+    addPlan: (plan) => set((state) => ({
+        teams: state.teams.map(t => t.id === state.currentTeamId ? { ...t, plans: [...t.plans, plan] } : t)
+    })),
     updatePlan: (id, plan) => set((state) => ({
-        plans: state.plans.map((p) => (p.id === id ? { ...p, ...plan } : p))
+        teams: state.teams.map(t => t.id === state.currentTeamId ? {
+            ...t,
+            plans: t.plans.map(p => p.id === id ? { ...p, ...plan } : p)
+        } : t)
     })),
     deletePlan: (id) => set((state) => ({
-        plans: state.plans.filter((p) => p.id !== id)
+        teams: state.teams.map(t => t.id === state.currentTeamId ? {
+            ...t,
+            plans: t.plans.filter(p => p.id !== id)
+        } : t)
     })),
-    addTeamMember: (member) => set((state) => ({ team: [...state.team, member] })),
+
+    addTeamMember: (member) => set((state) => ({
+        teams: state.teams.map(t => t.id === state.currentTeamId ? { ...t, members: [...t.members, member] } : t)
+    })),
     updateTeamMember: (id, member) => set((state) => ({
-        team: state.team.map((m) => (m.id === id ? { ...m, ...member } : m))
+        teams: state.teams.map(t => t.id === state.currentTeamId ? {
+            ...t,
+            members: t.members.map(m => m.id === id ? { ...m, ...member } : m)
+        } : t)
     })),
     deleteTeamMember: (id) => set((state) => ({
-        team: state.team.filter((m) => m.id !== id)
+        teams: state.teams.map(t => t.id === state.currentTeamId ? {
+            ...t,
+            members: t.members.filter(m => m.id !== id)
+        } : t)
     })),
+
     addCustomRole: (role) => set((state) => ({
-        customRoles: [...state.customRoles, role]
+        teams: state.teams.map(t => t.id === state.currentTeamId ? { ...t, roles: [...t.roles, role] } : t)
     })),
     updateCustomRole: (id, role) => set((state) => ({
-        customRoles: state.customRoles.map(r => r.id === id ? { ...r, ...role } : r)
+        teams: state.teams.map(t => t.id === state.currentTeamId ? {
+            ...t,
+            roles: t.roles.map(r => r.id === id ? { ...r, ...role } : r)
+        } : t)
     })),
     deleteCustomRole: (id) => set((state) => ({
-        customRoles: state.customRoles.filter(r => r.id !== id)
+        teams: state.teams.map(t => t.id === state.currentTeamId ? {
+            ...t,
+            roles: t.roles.filter(r => r.id !== id)
+        } : t)
     })),
-    reorderRoles: (roles) => set({ customRoles: roles }),
+    reorderRoles: (roles) => set((state) => ({
+        teams: state.teams.map(t => t.id === state.currentTeamId ? { ...t, roles } : t)
+    })),
+
+    addRoleGroup: (group) => set((state) => ({
+        teams: state.teams.map(t => t.id === state.currentTeamId ? { ...t, roleGroups: [...t.roleGroups, group] } : t)
+    })),
+    updateRoleGroup: (id, group) => set((state) => ({
+        teams: state.teams.map(t => t.id === state.currentTeamId ? {
+            ...t,
+            roleGroups: t.roleGroups.map(g => g.id === id ? { ...g, ...group } : g)
+        } : t)
+    })),
+    deleteRoleGroup: (id) => set((state) => ({
+        teams: state.teams.map(t => t.id === state.currentTeamId ? {
+            ...t,
+            roleGroups: t.roleGroups.filter(g => g.id !== id),
+            roles: t.roles.map(r => r.groupId === id ? { ...r, groupId: undefined } : r) // Remove group from roles
+        } : t)
+    })),
+    reorderRoleGroups: (groups) => set((state) => ({
+        teams: state.teams.map(t => t.id === state.currentTeamId ? { ...t, roleGroups: groups } : t)
+    })),
+
     addCustomTag: (tag) => set((state) => ({
-        customTags: state.customTags.includes(tag) ? state.customTags : [...state.customTags, tag]
+        teams: state.teams.map(t => t.id === state.currentTeamId ? {
+            ...t,
+            customTags: t.customTags.includes(tag) ? t.customTags : [...t.customTags, tag]
+        } : t)
     })),
     updateCustomTag: (oldTag, newTag) => set((state) => ({
-        customTags: state.customTags.map(t => t === oldTag ? newTag : t)
+        teams: state.teams.map(t => t.id === state.currentTeamId ? {
+            ...t,
+            customTags: t.customTags.map(tag => tag === oldTag ? newTag : tag)
+        } : t)
     })),
+
     addVenue: (venue) => set((state) => ({
-        venues: state.venues.includes(venue) ? state.venues : [...state.venues, venue]
+        teams: state.teams.map(t => t.id === state.currentTeamId ? {
+            ...t,
+            venues: t.venues.includes(venue) ? t.venues : [...t.venues, venue]
+        } : t)
     })),
+
     addNotification: (notification) => set((state) => ({
         notifications: [notification, ...state.notifications]
     })),
     markNotificationRead: (id) => set((state) => ({
         notifications: state.notifications.map(n => n.id === id ? { ...n, read: true } : n)
     })),
+
     spotifyConnected: false,
     setSpotifyConnected: (connected) => set({ spotifyConnected: connected }),
+}), {
+    name: 'psalmist-storage',
 }));
-

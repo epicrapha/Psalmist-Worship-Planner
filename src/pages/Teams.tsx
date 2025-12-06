@@ -1,68 +1,90 @@
-import { Plus, Grid, List, Trash2, Pencil, Check, X, GripVertical, Calendar } from 'lucide-react';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
+import { usePermissions } from '../hooks/use-permissions';
+import type { TeamMember, RoleDefinition, RoleGroup } from '../types';
+import {
+    Plus,
+    Trash2,
+    Edit2,
+    Settings,
+    ArrowLeft,
+    ChevronRight,
+    ChevronDown,
+    Check,
+    FolderPlus
+} from 'lucide-react';
+import * as Icons from 'lucide-react';
 import { InviteMemberDialog } from '../components/teams/InviteMemberDialog';
 import { EditMemberDialog } from '../components/teams/EditMemberDialog';
 import { RoleEditorDialog } from '../components/teams/RoleEditorDialog';
+import { RoleGroupDialog } from '../components/teams/RoleGroupDialog';
+import { CreateTeamDialog, EditTeamDialog } from '../components/teams/TeamDialogs';
+import { MemberProfileDialog } from '../components/teams/MemberProfileDialog';
 import { AvailabilityCalendar } from '../components/teams/AvailabilityCalendar';
-import { Card, CardContent } from '../components/ui/card';
-import type { TeamMember, RoleDefinition } from '../types';
-import { cn } from '../lib/utils';
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
-import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent, useDroppable } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import * as Icons from 'lucide-react';
 
-function SortableRoleItem({ role, onEdit, isSelecting, isSelected, onToggleSelect }: {
-    role: RoleDefinition;
-    onEdit: (role: RoleDefinition) => void;
-    isSelecting: boolean;
-    isSelected: boolean;
-    onToggleSelect: (id: string) => void;
-}) {
+function SortableRoleItem({ role, onEdit }: { role: RoleDefinition; onEdit: (role: RoleDefinition) => void }) {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: role.id });
     const style = { transform: CSS.Transform.toString(transform), transition };
-    const IconComp = (Icons as any)[role.icon] || Icons.User;
+    const Icon = (Icons as any)[role.icon] || Icons.User;
 
     return (
-        <div ref={setNodeRef} style={style} className={cn("flex items-center gap-3 p-3 bg-secondary/30 rounded-lg border border-transparent hover:border-border transition-colors group", isSelected && "ring-2 ring-primary bg-primary/5")}>
-            {!isSelecting && (
-                <button {...attributes} {...listeners} className="text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing">
-                    <GripVertical className="w-4 h-4" />
-                </button>
-            )}
-            {isSelecting && (
-                <button onClick={() => onToggleSelect(role.id)} className={cn("w-5 h-5 rounded border flex items-center justify-center transition-colors", isSelected ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground")}>
-                    {isSelected && <Check className="w-3 h-3" />}
-                </button>
-            )}
-            <div className={cn("w-8 h-8 rounded-full flex items-center justify-center text-white", role.color)}>
-                <IconComp className="w-4 h-4" />
+        <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="flex items-center justify-between p-3 bg-secondary/30 border border-border/50 rounded-lg group hover:bg-secondary transition-colors cursor-move">
+            <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-md ${role.color} bg-opacity-90 text-white shadow-sm`}>
+                    <Icon className="w-4 h-4" />
+                </div>
+                <span className="font-medium text-sm">{role.name}</span>
             </div>
-            <span className="font-medium flex-1">{role.name}</span>
-            <button onClick={() => onEdit(role)} className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                <Pencil className="w-4 h-4" />
+            <button
+                onClick={(e) => { e.stopPropagation(); onEdit(role); }}
+                className="p-1.5 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity bg-background rounded-md shadow-sm"
+            >
+                <Edit2 className="w-3 h-3" />
             </button>
         </div>
     );
 }
 
+// Droppable Group Component
+const DroppableGroup = ({ id, children, className }: { id: string, children: React.ReactNode, className?: string }) => {
+    const { setNodeRef } = useDroppable({ id });
+    return <div ref={setNodeRef} className={className}>{children}</div>;
+};
+
 export function Teams() {
-    const { team, customRoles, deleteTeamMember, reorderRoles, deleteCustomRole, plans } = useAppStore();
+    const { teams, currentTeamId, setCurrentTeam, deleteTeamMember, reorderRoles } = useAppStore();
+    const { can } = usePermissions();
+    const currentTeam = teams.find(t => t.id === currentTeamId);
+
+    // Derived state for current team
+    const team = currentTeam?.members || [];
+    const customRoles = currentTeam?.roles || [];
+    const roleGroups = currentTeam?.roleGroups || [];
+    const plans = currentTeam?.plans || [];
+
+    // UI State
     const [showInvite, setShowInvite] = useState(false);
     const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
-    const [showCalendar, setShowCalendar] = useState(true);
+    const [viewingMember, setViewingMember] = useState<TeamMember | null>(null);
 
-    // View states
-    const [rosterView, setRosterView] = useState<'grid' | 'list'>('list');
+    // Selection Mode
+    const [isEditMode, setIsEditMode] = useState(false);
     const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
-    const [isSelecting, setIsSelecting] = useState(false);
 
-    // Roles editing
     const [editingRole, setEditingRole] = useState<RoleDefinition | null>(null);
-    const [showRoleEditor, setShowRoleEditor] = useState(false);
-    const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
-    const [isSelectingRoles, setIsSelectingRoles] = useState(false);
+    const [isCreatingRole, setIsCreatingRole] = useState(false);
+
+    // Role Group State
+    const [editingGroup, setEditingGroup] = useState<RoleGroup | null>(null);
+    const [showCreateGroup, setShowCreateGroup] = useState(false);
+    const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
+
+    // Team Management State
+    const [showCreateTeam, setShowCreateTeam] = useState(false);
+    const [editingTeam, setEditingTeam] = useState<typeof currentTeam | null>(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -71,34 +93,42 @@ export function Teams() {
 
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
-        if (over && active.id !== over.id) {
-            const oldIndex = customRoles.findIndex((r) => r.id === active.id);
-            const newIndex = customRoles.findIndex((r) => r.id === over.id);
-            reorderRoles(arrayMove(customRoles, oldIndex, newIndex));
+        if (!over) return;
+
+        const activeRole = customRoles.find(r => r.id === active.id);
+        const overRole = customRoles.find(r => r.id === over.id);
+
+        if (!activeRole) return;
+
+        // Case 1: Dropped over another role
+        if (overRole) {
+            if (active.id !== over.id) {
+                const oldIndex = customRoles.findIndex((r) => r.id === active.id);
+                const newIndex = customRoles.findIndex((r) => r.id === over.id);
+
+                const newRoles = [...customRoles];
+                // Update group if different
+                if (activeRole.groupId !== overRole.groupId) {
+                    newRoles[oldIndex] = { ...newRoles[oldIndex], groupId: overRole.groupId };
+                }
+
+                reorderRoles(arrayMove(newRoles, oldIndex, newIndex));
+            }
         }
-    };
+        // Case 2: Dropped over a group container
+        else {
+            const isUngrouped = over.id === 'ungrouped-roles';
+            const overGroup = roleGroups.find(g => g.id === over.id);
 
-    const toggleMemberSelection = (id: string) => {
-        setSelectedMembers(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]);
-    };
-
-    const toggleRoleSelection = (id: string) => {
-        setSelectedRoles(prev => prev.includes(id) ? prev.filter(r => r !== id) : [...prev, id]);
-    };
-
-    const handleDeleteSelectedMembers = () => {
-        if (confirm(`Delete ${selectedMembers.length} selected member(s)?`)) {
-            selectedMembers.forEach(id => deleteTeamMember(id));
-            setSelectedMembers([]);
-            setIsSelecting(false);
-        }
-    };
-
-    const handleDeleteSelectedRoles = () => {
-        if (confirm(`Delete ${selectedRoles.length} selected role(s)?`)) {
-            selectedRoles.forEach(id => deleteCustomRole(id));
-            setSelectedRoles([]);
-            setIsSelectingRoles(false);
+            if (overGroup || isUngrouped) {
+                const newGroupId = isUngrouped ? undefined : overGroup?.id;
+                if (activeRole.groupId !== newGroupId) {
+                    const newRoles = customRoles.map(r =>
+                        r.id === active.id ? { ...r, groupId: newGroupId } : r
+                    );
+                    reorderRoles(newRoles);
+                }
+            }
         }
     };
 
@@ -106,160 +136,362 @@ export function Teams() {
         return memberRoles.map(roleName => customRoles.find(r => r.name === roleName)).filter(Boolean) as RoleDefinition[];
     };
 
-    const getCommittedEvents = (memberId: string) => {
+    const getMemberEvents = (memberId: string) => {
         return plans.filter(plan => plan.team?.some(tm => tm.memberId === memberId));
     };
 
+    const toggleGroup = (groupId: string) => {
+        setExpandedGroups(prev =>
+            prev.includes(groupId) ? prev.filter(id => id !== groupId) : [...prev, groupId]
+        );
+    };
+
+    const toggleMemberSelection = (memberId: string) => {
+        if (selectedMembers.includes(memberId)) {
+            setSelectedMembers(selectedMembers.filter(id => id !== memberId));
+        } else {
+            setSelectedMembers([...selectedMembers, memberId]);
+        }
+    };
+
+    // If no team is selected, show "All Teams" view
+    if (!currentTeamId || !currentTeam) {
+        return (
+            <div className="space-y-6 pb-20 animate-in fade-in duration-500">
+                <div className="flex items-center justify-between">
+                    <h1 className="text-3xl font-bold tracking-tight">All Teams</h1>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {teams.map((team) => (
+                        <div
+                            key={team.id}
+                            onClick={() => setCurrentTeam(team.id)}
+                            className="group relative bg-card border border-border rounded-xl p-6 hover:border-primary/50 transition-all cursor-pointer hover:shadow-lg"
+                        >
+                            <div className="flex items-start justify-between mb-4">
+                                <div className={`p-3 rounded-lg ${team.color} text-white`}>
+                                    {(Icons as any)[team.icon] && React.createElement((Icons as any)[team.icon], { className: "w-6 h-6" })}
+                                </div>
+
+                                {/* Avatar Pile */}
+                                <div className="flex -space-x-2">
+                                    {team.members.slice(0, 4).map(m => (
+                                        <div key={m.id} className="w-8 h-8 rounded-full border-2 border-card bg-secondary overflow-hidden">
+                                            <img src={m.avatar} alt={m.name} className="w-full h-full object-cover" />
+                                        </div>
+                                    ))}
+                                    {team.members.length > 4 && (
+                                        <div className="w-8 h-8 rounded-full border-2 border-card bg-secondary flex items-center justify-center text-[10px] font-medium text-muted-foreground">
+                                            +{team.members.length - 4}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="flex justify-between items-end">
+                                <div>
+                                    <h3 className="text-xl font-bold mb-1 group-hover:text-primary transition-colors">{team.name}</h3>
+                                    <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium">{team.members.length} Members</div>
+                                </div>
+                                <div className="text-sm font-medium bg-secondary/50 px-2 py-1 rounded">
+                                    {team.plans.length} Events
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* FAB */}
+                <button
+                    onClick={() => setShowCreateTeam(true)}
+                    className="fixed bottom-24 right-6 w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg flex items-center justify-center hover:bg-primary/90 transition-colors active:scale-95 z-40"
+                    title="Create Team"
+                >
+                    <Plus className="w-7 h-7" />
+                </button>
+
+                <CreateTeamDialog isOpen={showCreateTeam} onClose={() => setShowCreateTeam(false)} />
+            </div>
+        );
+    }
+
+    const groupedRoles = roleGroups.map(group => ({
+        group,
+        roles: customRoles.filter(r => r.groupId === group.id).sort((a, b) => a.order - b.order)
+    }));
+    const ungroupedRoles = customRoles.filter(r => !r.groupId).sort((a, b) => a.order - b.order);
+
     return (
-        <div className="space-y-8 pb-24 animate-in fade-in duration-500 relative min-h-screen">
-            <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold tracking-tight">Team</h1>
-                <div className="text-sm text-muted-foreground">
-                    {team.length} Members
+        <div className="space-y-6 pb-20 animate-in fade-in duration-500">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <button onClick={() => setCurrentTeam('')} className="p-2 hover:bg-secondary rounded-lg transition-colors">
+                        <ArrowLeft className="w-5 h-5" />
+                    </button>
+                    <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${currentTeam.color} text-white`}>
+                            {(Icons as any)[currentTeam.icon] && React.createElement((Icons as any)[currentTeam.icon], { className: "w-5 h-5" })}
+                        </div>
+                        <div>
+                            <h1 className="text-3xl font-bold tracking-tight leading-none">{currentTeam.name}</h1>
+                            <p className="text-sm text-muted-foreground mt-1">{team.length} members</p>
+                        </div>
+                    </div>
+                </div>
+                <div className="flex gap-2">
+                    {can('manage_team') && (
+                        <button
+                            onClick={() => setEditingTeam(currentTeam)}
+                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors"
+                        >
+                            <Settings className="w-5 h-5" />
+                        </button>
+                    )}
                 </div>
             </div>
 
-            {/* Roster Section */}
-            <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                    <h2 className="text-lg font-semibold tracking-tight">Roster</h2>
-                    <div className="flex items-center gap-2">
-                        {isSelecting ? (
-                            <>
-                                <span className="text-xs text-muted-foreground">{selectedMembers.length} selected</span>
-                                {selectedMembers.length > 0 && (
-                                    <button onClick={handleDeleteSelectedMembers} className="p-2 text-destructive hover:bg-destructive/10 rounded-lg">
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                )}
-                                <button onClick={() => { setIsSelecting(false); setSelectedMembers([]); }} className="p-2 hover:bg-secondary rounded-lg">
-                                    <X className="w-4 h-4" />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Main Roster Section (Left Column) */}
+                <div className="lg:col-span-2 space-y-4">
+                    <div className="flex items-center justify-between bg-card p-4 rounded-xl border border-border">
+                        <div className="flex items-center gap-2">
+                            <h2 className="text-lg font-semibold">Roster</h2>
+                            <div className="w-px h-4 bg-border mx-2" />
+                            {can('manage_team') && (
+                                <button
+                                    onClick={() => setIsEditMode(!isEditMode)}
+                                    className={`text-xs font-medium px-2 py-1 rounded transition-colors ${isEditMode ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}
+                                >
+                                    {isEditMode ? 'Done' : 'Manage'}
                                 </button>
-                            </>
-                        ) : (
-                            <>
-                                <button onClick={() => setIsSelecting(true)} className="text-xs text-primary hover:underline">Select</button>
-                                <div className="flex bg-secondary rounded-lg p-0.5">
-                                    <button onClick={() => setRosterView('list')} className={cn("p-1.5 rounded-md transition-colors", rosterView === 'list' ? "bg-background shadow-sm" : "text-muted-foreground")}>
-                                        <List className="w-4 h-4" />
-                                    </button>
-                                    <button onClick={() => setRosterView('grid')} className={cn("p-1.5 rounded-md transition-colors", rosterView === 'grid' ? "bg-background shadow-sm" : "text-muted-foreground")}>
-                                        <Grid className="w-4 h-4" />
-                                    </button>
+                            )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            {isEditMode && selectedMembers.length > 0 && (
+                                <button
+                                    onClick={() => {
+                                        if (confirm(`Delete ${selectedMembers.length} members?`)) {
+                                            selectedMembers.forEach(id => deleteTeamMember(id));
+                                            setSelectedMembers([]);
+                                        }
+                                    }}
+                                    className="flex items-center gap-2 px-3 py-1.5 text-destructive hover:bg-destructive/10 rounded-lg transition-colors text-sm font-medium"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                    Delete ({selectedMembers.length})
+                                </button>
+                            )}
+                            {can('manage_team') && (
+                                <button
+                                    onClick={() => setShowInvite(true)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors text-sm font-medium"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    Add Member
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        {team.map((member) => {
+                            const memberRoles = getMemberRoles(member.roles || []);
+                            const events = getMemberEvents(member.id);
+                            const isSelected = selectedMembers.includes(member.id);
+
+                            return (
+                                <div
+                                    key={member.id}
+                                    onClick={() => {
+                                        if (isEditMode) toggleMemberSelection(member.id);
+                                        else setViewingMember(member);
+                                    }}
+                                    className={`
+                                        group flex items-center justify-between p-3 rounded-lg border bg-card hover:border-primary/50 transition-all cursor-pointer
+                                        ${isSelected && isEditMode ? 'border-primary bg-primary/5' : 'border-border'}
+                                    `}
+                                >
+                                    <div className="flex items-center gap-4">
+                                        {/* Selection Checkbox (Visible only in Edit Mode) */}
+                                        {isEditMode && (
+                                            <div className={`w-5 h-5 rounded border flex items-center justify-center transition-all flex-shrink-0 ${isSelected ? 'bg-primary border-primary text-primary-foreground' : 'border-muted-foreground bg-background'}`}>
+                                                {isSelected && <Check className="w-3 h-3" />}
+                                            </div>
+                                        )}
+
+                                        <div className="relative flex-shrink-0">
+                                            <img src={member.avatar} alt={member.name} className="w-10 h-10 rounded-full object-cover" />
+                                            <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-background rounded-full" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-medium">{member.name}</h3>
+                                            <div className="flex flex-wrap gap-1 mt-0.5">
+                                                {memberRoles.slice(0, 3).map((role, i) => (
+                                                    <span key={i} className="text-xs text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">{role.name}</span>
+                                                ))}
+                                                {memberRoles.length > 3 && (
+                                                    <span className="text-xs text-muted-foreground">+ {memberRoles.length - 3}</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-4">
+                                        <div className="text-sm text-muted-foreground hidden sm:block">
+                                            {events.length} events
+                                        </div>
+                                        {!isEditMode && (
+                                            <ChevronRight className="w-5 h-5 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors" />
+                                        )}
+                                    </div>
                                 </div>
-                            </>
-                        )}
+                            );
+                        })}
                     </div>
                 </div>
 
-                <div className={cn(rosterView === 'grid' ? "grid grid-cols-2 gap-3" : "space-y-3")}>
-                    {team.map((member) => {
-                        const memberRoles = getMemberRoles(member.roles || []);
-                        const committedEvents = getCommittedEvents(member.id);
+                {/* Right Column: Calendar & Roles */}
+                <div className="space-y-8">
+                    {/* Availability Calendar */}
+                    <div className="space-y-4">
+                        <h2 className="text-lg font-semibold">Availability</h2>
+                        <AvailabilityCalendar team={team} />
+                    </div>
 
-                        return (
-                            <Card key={member.id} className={cn("overflow-hidden cursor-pointer transition-all hover:border-primary/50", isSelecting && selectedMembers.includes(member.id) && "ring-2 ring-primary")}>
-                                <CardContent className={cn("flex items-center justify-between relative", rosterView === 'grid' ? "p-3 flex-col text-center" : "p-4")}>
-                                    {isSelecting && (
-                                        <button onClick={() => toggleMemberSelection(member.id)} className={cn("absolute top-2 right-2 w-5 h-5 rounded-full border-2 flex items-center justify-center z-10", selectedMembers.includes(member.id) ? "bg-primary border-primary text-white" : "border-muted-foreground bg-background")}>
-                                            {selectedMembers.includes(member.id) && <Check className="w-3 h-3" />}
+                    {/* Roles Overview */}
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-lg font-semibold">Roles</h2>
+                            <div className="flex items-center gap-2">
+                                {can('manage_team') && (
+                                    <>
+                                        <button
+                                            onClick={() => setShowCreateGroup(true)}
+                                            className="p-1.5 hover:bg-secondary rounded-lg transition-colors text-primary"
+                                            title="Create Group"
+                                        >
+                                            <FolderPlus className="w-5 h-5" />
                                         </button>
-                                    )}
-                                    <button onClick={() => isSelecting ? toggleMemberSelection(member.id) : setEditingMember(member)} className={cn("flex items-center flex-1 w-full", rosterView === 'grid' ? "flex-col" : "space-x-4")}>
-                                        <img src={member.avatar} alt={member.name} className={cn("rounded-full object-cover border-2 border-background shadow-sm", rosterView === 'grid' ? "w-16 h-16 mb-2" : "w-12 h-12")} />
-                                        <div className={cn("flex-1 min-w-0", rosterView === 'grid' ? "text-center w-full" : "text-left")}>
-                                            <h3 className="font-semibold truncate">{member.name}</h3>
-                                            <div className={cn("flex flex-wrap gap-1 mt-1", rosterView === 'grid' ? "justify-center" : "")}>
-                                                {memberRoles.map(role => (
-                                                    <span key={role.id} className={cn("text-[10px] px-1.5 py-0.5 rounded-full text-white flex items-center gap-1", role.color)}>
-                                                        {role.name}
-                                                    </span>
-                                                ))}
-                                                {memberRoles.length === 0 && <span className="text-xs text-muted-foreground">Member</span>}
+                                        <button
+                                            onClick={() => setIsCreatingRole(true)}
+                                            className="p-1.5 hover:bg-secondary rounded-lg transition-colors text-primary"
+                                            title="Create Role"
+                                        >
+                                            <Plus className="w-5 h-5" />
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="bg-card border border-border rounded-xl p-4 space-y-4 max-h-[600px] overflow-y-auto">
+                            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                                {/* Role Groups */}
+                                {groupedRoles.map(({ group, roles }) => {
+                                    const Icon = (Icons as any)[group.icon] || Icons.Users;
+                                    const isExpanded = expandedGroups.includes(group.id);
+
+                                    return (
+                                        <DroppableGroup key={group.id} id={group.id} className="space-y-2">
+                                            <div className="flex items-center justify-between group/header p-2 bg-secondary/20 rounded-lg hover:bg-secondary/40 transition-colors cursor-pointer" onClick={() => toggleGroup(group.id)}>
+                                                <div className="flex items-center gap-2 text-sm font-semibold">
+                                                    {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                                                    <div className={`p-1 rounded ${group.color} text-white`}>
+                                                        <Icon className="w-3 h-3" />
+                                                    </div>
+                                                    <span>{group.name}</span>
+                                                </div>
+                                                <div className="flex items-center opacity-0 group-hover/header:opacity-100 transition-opacity">
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setEditingGroup(group); }}
+                                                        className="p-1.5 hover:bg-secondary rounded text-muted-foreground hover:text-foreground"
+                                                    >
+                                                        <Edit2 className="w-3 h-3" />
+                                                    </button>
+                                                </div>
                                             </div>
-                                            {committedEvents.length > 0 && (
-                                                <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
-                                                    <Calendar className="w-3 h-3" />
-                                                    <span>{committedEvents.length} Event{committedEvents.length > 1 ? 's' : ''}</span>
+
+                                            {isExpanded && (
+                                                <div className="pl-4 space-y-2 border-l-2 border-border ml-2 min-h-[10px]">
+                                                    <SortableContext items={roles.map(r => r.id)} strategy={verticalListSortingStrategy}>
+                                                        {roles.map((role) => (
+                                                            <SortableRoleItem key={role.id} role={role} onEdit={setEditingRole} />
+                                                        ))}
+                                                    </SortableContext>
                                                 </div>
                                             )}
-                                        </div>
-                                    </button>
-                                </CardContent>
-                            </Card>
-                        );
-                    })}
-                </div>
-            </div>
+                                        </DroppableGroup>
+                                    );
+                                })}
 
-            {/* Roles Section */}
-            <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                    <h2 className="text-lg font-semibold tracking-tight">Roles</h2>
-                    <div className="flex items-center gap-2">
-                        {isSelectingRoles ? (
-                            <>
-                                <span className="text-xs text-muted-foreground">{selectedRoles.length} selected</span>
-                                {selectedRoles.length > 0 && (
-                                    <button onClick={handleDeleteSelectedRoles} className="p-2 text-destructive hover:bg-destructive/10 rounded-lg">
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                )}
-                                <button onClick={() => { setIsSelectingRoles(false); setSelectedRoles([]); }} className="p-2 hover:bg-secondary rounded-lg">
-                                    <X className="w-4 h-4" />
-                                </button>
-                            </>
-                        ) : (
-                            <button onClick={() => setIsSelectingRoles(true)} className="text-xs text-primary hover:underline">Select</button>
-                        )}
+                                {/* Ungrouped Roles */}
+                                <DroppableGroup id="ungrouped-roles" className="space-y-2">
+                                    {groupedRoles.length > 0 && <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2 px-2">Ungrouped</div>}
+                                    <SortableContext items={ungroupedRoles.map(r => r.id)} strategy={verticalListSortingStrategy}>
+                                        {ungroupedRoles.map((role) => (
+                                            <SortableRoleItem key={role.id} role={role} onEdit={setEditingRole} />
+                                        ))}
+                                    </SortableContext>
+                                </DroppableGroup>
+                            </DndContext>
+                        </div>
                     </div>
                 </div>
-
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                    <SortableContext items={customRoles.map(r => r.id)} strategy={verticalListSortingStrategy}>
-                        <div className="space-y-2">
-                            {customRoles.map((role) => (
-                                <SortableRoleItem
-                                    key={role.id}
-                                    role={role}
-                                    onEdit={(r) => { setEditingRole(r); setShowRoleEditor(true); }}
-                                    isSelecting={isSelectingRoles}
-                                    isSelected={selectedRoles.includes(role.id)}
-                                    onToggleSelect={toggleRoleSelection}
-                                />
-                            ))}
-                        </div>
-                    </SortableContext>
-                </DndContext>
-
-                <button
-                    onClick={() => { setEditingRole(null); setShowRoleEditor(true); }}
-                    className="w-full py-3 border-2 border-dashed border-border rounded-lg text-muted-foreground hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2 text-sm font-medium"
-                >
-                    <Plus className="w-4 h-4" />
-                    Create New Role
-                </button>
             </div>
-
-            {/* Availability Section */}
-            <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                    <h2 className="text-lg font-semibold tracking-tight">Availability</h2>
-                    <button onClick={() => setShowCalendar(!showCalendar)} className="text-sm text-primary hover:underline">
-                        {showCalendar ? 'Hide Calendar' : 'View Calendar'}
-                    </button>
-                </div>
-                {showCalendar && <AvailabilityCalendar team={team} />}
-            </div>
-
-            {/* FAB */}
-            <button onClick={() => setShowInvite(true)} className="fixed bottom-20 right-4 w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg flex items-center justify-center hover:bg-primary/90 transition-colors active:scale-95 z-40">
-                <Plus className="w-7 h-7" />
-            </button>
 
             <InviteMemberDialog isOpen={showInvite} onClose={() => setShowInvite(false)} />
-            {editingMember && <EditMemberDialog isOpen={!!editingMember} onClose={() => setEditingMember(null)} member={editingMember} />}
-            <RoleEditorDialog isOpen={showRoleEditor} onClose={() => setShowRoleEditor(false)} roleToEdit={editingRole || undefined} />
+
+            {/* View Profile Dialog */}
+            {viewingMember && (
+                <MemberProfileDialog
+                    isOpen={!!viewingMember}
+                    onClose={() => setViewingMember(null)}
+                    member={viewingMember}
+                    onEdit={() => {
+                        setEditingMember(viewingMember);
+                        setViewingMember(null);
+                    }}
+                />
+            )}
+
+            {/* Edit Member Dialog */}
+            {editingMember && (
+                <EditMemberDialog
+                    isOpen={!!editingMember}
+                    onClose={() => setEditingMember(null)}
+                    member={editingMember}
+                />
+            )}
+
+            {(editingRole || isCreatingRole) && (
+                <RoleEditorDialog
+                    isOpen={!!editingRole || isCreatingRole}
+                    onClose={() => { setEditingRole(null); setIsCreatingRole(false); }}
+                    roleToEdit={editingRole || undefined}
+                />
+            )}
+            <CreateTeamDialog isOpen={showCreateTeam} onClose={() => setShowCreateTeam(false)} />
+            {editingTeam && (
+                <EditTeamDialog
+                    isOpen={!!editingTeam}
+                    onClose={() => setEditingTeam(null)}
+                    team={editingTeam}
+                />
+            )}
+            <RoleGroupDialog
+                isOpen={showCreateGroup}
+                onClose={() => setShowCreateGroup(false)}
+            />
+            {editingGroup && (
+                <RoleGroupDialog
+                    isOpen={!!editingGroup}
+                    onClose={() => setEditingGroup(null)}
+                    groupToEdit={editingGroup}
+                />
+            )}
         </div>
     );
 }

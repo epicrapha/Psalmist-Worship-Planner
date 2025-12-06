@@ -5,7 +5,7 @@ import { Home } from './pages/Home';
 import { Library } from './pages/Library';
 import { Plans } from './pages/Plans';
 import { Teams } from './pages/Teams';
-import { Settings } from './pages/Settings';
+import { Profile } from './pages/Profile';
 import { Rehearsal } from './pages/Rehearsal';
 
 function App() {
@@ -18,7 +18,7 @@ function App() {
             <Route path="/library" element={<Library />} />
             <Route path="/events" element={<Plans />} />
             <Route path="/teams" element={<Teams />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route path="/profile" element={<Profile />} />
           </Route>
           <Route path="/rehearsal/:songId" element={<Rehearsal />} />
         </Routes>

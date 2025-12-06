@@ -3,6 +3,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { Dialog } from '../ui/dialog';
 import type { TeamMember } from '../../types';
 import { Trash2, Check } from 'lucide-react';
+import * as Icons from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface EditMemberDialogProps {
@@ -12,7 +13,9 @@ interface EditMemberDialogProps {
 }
 
 export function EditMemberDialog({ isOpen, onClose, member }: EditMemberDialogProps) {
-    const { updateTeamMember, deleteTeamMember, customRoles } = useAppStore();
+    const { updateTeamMember, deleteTeamMember, teams, currentTeamId } = useAppStore();
+    const currentTeam = teams.find(t => t.id === currentTeamId);
+    const customRoles = currentTeam?.roles || [];
     const [name, setName] = useState(member.name);
     const [selectedRoles, setSelectedRoles] = useState<string[]>(member.roles || []);
 
@@ -57,22 +60,26 @@ export function EditMemberDialog({ isOpen, onClose, member }: EditMemberDialogPr
                 <div className="space-y-2">
                     <label className="text-sm font-medium block">Roles</label>
                     <div className="flex flex-wrap gap-2">
-                        {customRoles.map(r => (
-                            <button
-                                key={r.id}
-                                type="button"
-                                onClick={() => toggleRole(r.name)}
-                                className={cn(
-                                    "px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-1",
-                                    selectedRoles.includes(r.name)
-                                        ? "bg-primary text-primary-foreground"
-                                        : "bg-secondary hover:bg-secondary/80"
-                                )}
-                            >
-                                {selectedRoles.includes(r.name) && <Check className="w-3 h-3" />}
-                                {r.name}
-                            </button>
-                        ))}
+                        {customRoles.map(r => {
+                            const Icon = (Icons as any)[r.icon] || Icons.User;
+                            return (
+                                <button
+                                    key={r.id}
+                                    type="button"
+                                    onClick={() => toggleRole(r.name)}
+                                    className={cn(
+                                        "px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-2",
+                                        selectedRoles.includes(r.name)
+                                            ? "bg-primary text-primary-foreground"
+                                            : "bg-secondary hover:bg-secondary/80"
+                                    )}
+                                >
+                                    <Icon className="w-3 h-3" />
+                                    {r.name}
+                                    {selectedRoles.includes(r.name) && <Check className="w-3 h-3 ml-1" />}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
 
