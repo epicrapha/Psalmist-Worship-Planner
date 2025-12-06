@@ -6,7 +6,7 @@ import { cn } from '../lib/utils';
 import { EditSongDialog } from '../components/library/EditSongDialog';
 import { parseChordProToSegments } from '../lib/chordpro';
 
-export function Rehearsal() {
+function Rehearsal() {
     const { songId } = useParams();
     const navigate = useNavigate();
     const { teams, currentTeamId } = useAppStore();
@@ -125,3 +125,7 @@ export function Rehearsal() {
         </div>
     );
 }
+
+
+
+export default Rehearsal;

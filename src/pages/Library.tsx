@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 
 type SortOption = 'title' | 'artist' | 'key' | 'bpm';
 
-export function Library() {
+function Library() {
     const navigate = useNavigate();
     const { teams, currentTeamId } = useAppStore();
     const { can } = usePermissions();
@@ -240,3 +240,7 @@ export function Library() {
         </div>
     );
 }
+
+
+
+export default Library;

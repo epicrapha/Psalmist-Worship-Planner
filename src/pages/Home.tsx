@@ -5,7 +5,7 @@ import { RecentSongs } from '../components/home/RecentSongs';
 import { NotificationCard, MetricsCard } from '../components/home/DashboardCards';
 import { useAppStore } from '../store/useAppStore';
 
-export function Home() {
+function Home() {
     const { user, teams, currentTeamId } = useAppStore();
     const currentTeam = teams.find(t => t.id === currentTeamId);
     const plans = currentTeam?.plans || [];
@@ -75,3 +75,7 @@ export function Home() {
         </div>
     );
 }
+
+
+
+export default Home;

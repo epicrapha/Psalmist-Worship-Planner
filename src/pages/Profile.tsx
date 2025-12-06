@@ -3,7 +3,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useAppStore } from '../store/useAppStore';
 import { Card, CardContent } from '../components/ui/card';
 
-export function Profile() {
+function Profile() {
     const { theme, setTheme } = useTheme();
     const { user, spotifyConnected, setSpotifyConnected } = useAppStore();
 
@@ -108,3 +108,7 @@ export function Profile() {
         </div>
     );
 }
+
+
+
+export default Profile;

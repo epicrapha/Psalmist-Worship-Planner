@@ -4,12 +4,12 @@ import { ThemeProvider } from './context/ThemeContext';
 import { Layout } from './components/Layout';
 
 // Lazy load all page components
-const Home = lazy(() => import('./pages/Home').then(m => ({ default: m.Home })));
-const Library = lazy(() => import('./pages/Library').then(m => ({ default: m.Library })));
-const Plans = lazy(() => import('./pages/Plans').then(m => ({ default: m.Plans })));
-const Teams = lazy(() => import('./pages/Teams').then(m => ({ default: m.Teams })));
-const Profile = lazy(() => import('./pages/Profile').then(m => ({ default: m.Profile })));
-const Rehearsal = lazy(() => import('./pages/Rehearsal').then(m => ({ default: m.Rehearsal })));
+const Home = lazy(() => import('./pages/Home'));
+const Library = lazy(() => import('./pages/Library'));
+const Plans = lazy(() => import('./pages/Plans'));
+const Teams = lazy(() => import('./pages/Teams'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Rehearsal = lazy(() => import('./pages/Rehearsal'));
 
 function App() {
   return (

@@ -54,7 +54,7 @@ const DroppableGroup = ({ id, children, className }: { id: string, children: Rea
     return <div ref={setNodeRef} className={className}>{children}</div>;
 };
 
-export function Teams() {
+function Teams() {
     const { teams, currentTeamId, setCurrentTeam, deleteTeamMember, reorderRoles } = useAppStore();
     const { can } = usePermissions();
     const currentTeam = teams.find(t => t.id === currentTeamId);
@@ -495,3 +495,7 @@ export function Teams() {
         </div>
     );
 }
+
+
+
+export default Teams;

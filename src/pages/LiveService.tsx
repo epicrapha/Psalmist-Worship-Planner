@@ -15,7 +15,7 @@ import {
 import { cn } from '../lib/utils';
 
 
-export function LiveService() {
+function LiveService() {
     const { planId } = useParams<{ planId: string }>();
     const navigate = useNavigate();
     const { teams, currentTeamId } = useAppStore();
@@ -189,3 +189,7 @@ export function LiveService() {
         </div>
     );
 }
+
+
+
+export default LiveService;

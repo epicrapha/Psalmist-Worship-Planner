@@ -18,7 +18,7 @@ import { useMediaQuery } from '../hooks/use-media-query';
 // Persist view state
 let lastViewedEventId: string | null = null;
 
-export function Plans() {
+function Plans() {
     const navigate = useNavigate();
     const { teams, currentTeamId, updatePlan, addPlan, deletePlan } = useAppStore();
     const { can } = usePermissions();
@@ -736,3 +736,7 @@ export function Plans() {
         </div>
     );
 }
+
+
+
+export default Plans;
