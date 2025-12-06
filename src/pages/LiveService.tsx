@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { format } from 'date-fns';
@@ -13,7 +13,7 @@ import {
     Minimize2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import type { PlanItem } from '../types';
+
 
 export function LiveService() {
     const { planId } = useParams<{ planId: string }>();
