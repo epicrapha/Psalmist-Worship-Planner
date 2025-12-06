@@ -15,8 +15,8 @@ export function Library() {
     const { teams, currentTeamId } = useAppStore();
     const { can } = usePermissions();
     const currentTeam = teams.find(t => t.id === currentTeamId);
-    const songs = currentTeam?.songs || [];
-    const customTags = currentTeam?.customTags || [];
+    const songs = currentTeamId ? (currentTeam?.songs || []) : teams.flatMap(t => t.songs);
+    const customTags = currentTeamId ? (currentTeam?.customTags || []) : [...new Set(teams.flatMap(t => t.customTags || []))];
     const [activeTab, setActiveTab] = useState<'songs' | 'arrangements' | 'media'>('songs');
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [searchQuery, setSearchQuery] = useState('');

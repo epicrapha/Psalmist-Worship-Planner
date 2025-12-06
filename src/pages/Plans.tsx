@@ -23,7 +23,7 @@ export function Plans() {
     const { teams, currentTeamId, updatePlan, addPlan, deletePlan } = useAppStore();
     const { can } = usePermissions();
     const currentTeam = teams.find(t => t.id === currentTeamId);
-    const plans = currentTeam?.plans || [];
+    const plans = currentTeamId ? (currentTeam?.plans || []) : teams.flatMap(t => t.plans);
     const team = currentTeam?.members || [];
     const customRoles = currentTeam?.roles || [];
     const roleGroups = currentTeam?.roleGroups || [];
