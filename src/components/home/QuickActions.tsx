@@ -1,7 +1,7 @@
 import { Plus, CalendarPlus, UserCheck, Users } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AddSongDialog } from './AddSongDialog';
+import { AddSongDialog } from '../library/AddSongDialog';
 import { AddEventDialog } from '../events/AddEventDialog';
 import { InviteMemberDialog } from '../teams/InviteMemberDialog';
 

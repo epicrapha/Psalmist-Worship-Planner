@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Search, SlidersHorizontal, Grid, List, ArrowUpDown, Plus } from 'lucide-react';
 import { SongCard } from '../components/library/SongCard';
+import { AddSongDialog } from '../components/library/AddSongDialog';
 import { useAppStore } from '../store/useAppStore';
 import { usePermissions } from '../hooks/use-permissions';
 import { cn } from '../lib/utils';
@@ -21,6 +22,7 @@ export function Library() {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
     const [showFilters, setShowFilters] = useState(false);
+    const [showAddSong, setShowAddSong] = useState(false);
 
     // Sorting
     const [sortBy, setSortBy] = useState<SortOption>('title');
@@ -221,13 +223,19 @@ export function Library() {
 
             {/* FAB */}
             {can('manage_library') && (
-                <button
-                    onClick={() => { /* TODO: Open Add Song Dialog */ alert('Add Song Dialog coming soon!'); }}
-                    className="fixed bottom-24 right-6 w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg flex items-center justify-center hover:bg-primary/90 transition-colors active:scale-95 z-40"
-                    title="Add Song"
-                >
-                    <Plus className="w-7 h-7" />
-                </button>
+                <>
+                    <button
+                        onClick={() => setShowAddSong(true)}
+                        className="fixed bottom-24 right-6 w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg flex items-center justify-center hover:bg-primary/90 transition-colors active:scale-95 z-40"
+                        title="Add Song"
+                    >
+                        <Plus className="w-7 h-7" />
+                    </button>
+                    <AddSongDialog
+                        isOpen={showAddSong}
+                        onClose={() => setShowAddSong(false)}
+                    />
+                </>
             )}
         </div>
     );

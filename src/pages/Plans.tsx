@@ -1,4 +1,5 @@
-import { Download, Share, Plus, Calendar, MoreHorizontal, Pencil, ArrowLeft, Users, Trash2 } from 'lucide-react';
+import { Download, Share, Plus, Calendar, MoreHorizontal, Pencil, ArrowLeft, Users, Trash2, Monitor } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { PlanTimeline } from '../components/plans/PlanTimeline';
 import { useAppStore } from '../store/useAppStore';
@@ -18,6 +19,7 @@ import { useMediaQuery } from '../hooks/use-media-query';
 let lastViewedEventId: string | null = null;
 
 export function Plans() {
+    const navigate = useNavigate();
     const { teams, currentTeamId, updatePlan, addPlan, deletePlan } = useAppStore();
     const { can } = usePermissions();
     const currentTeam = teams.find(t => t.id === currentTeamId);
@@ -209,6 +211,13 @@ export function Plans() {
                             )}
                         </div>
                         <p className="text-muted-foreground">{format(new Date(selectedPlan.date), 'EEEE, MMMM do, yyyy • h:mm a')}</p>
+                        <button
+                            onClick={() => navigate(`/live/${selectedPlan.id}`)}
+                            className="flex items-center gap-1.5 px-3 py-1 bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 border border-indigo-500/20 rounded-full text-xs font-medium transition-colors mt-2"
+                        >
+                            <Monitor className="w-3 h-3" />
+                            Tech View
+                        </button>
                     </div>
                     <div className="flex space-x-2">
                         <button

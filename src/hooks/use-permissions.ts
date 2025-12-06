@@ -1,5 +1,5 @@
 import { useAppStore } from '../store/useAppStore';
-import { PERMISSIONS } from '../constants/permissions';
+
 
 export function usePermissions() {
     const { user, teams, currentTeamId } = useAppStore();
