@@ -24,9 +24,9 @@ function Plans() {
     const { can } = usePermissions();
     const currentTeam = teams.find(t => t.id === currentTeamId);
     const plans = currentTeamId ? (currentTeam?.plans || []) : teams.flatMap(t => t.plans);
-    const team = currentTeam?.members || [];
-    const customRoles = currentTeam?.roles || [];
-    const roleGroups = currentTeam?.roleGroups || [];
+    const team = currentTeamId ? (currentTeam?.members || []) : teams.flatMap(t => t.members);
+    const customRoles = currentTeamId ? (currentTeam?.roles || []) : teams.flatMap(t => t.roles);
+    const roleGroups = currentTeamId ? (currentTeam?.roleGroups || []) : teams.flatMap(t => t.roleGroups);
     const [selectedPlan, setSelectedPlan] = useState<ServicePlan | null>(null);
     const [showAddEvent, setShowAddEvent] = useState(false);
     const [prefillDate, setPrefillDate] = useState<string | undefined>(undefined);

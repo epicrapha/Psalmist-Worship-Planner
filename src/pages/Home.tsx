@@ -8,8 +8,8 @@ import { useAppStore } from '../store/useAppStore';
 function Home() {
     const { user, teams, currentTeamId } = useAppStore();
     const currentTeam = teams.find(t => t.id === currentTeamId);
-    const plans = currentTeam?.plans || [];
-    const songs = currentTeam?.songs || [];
+    const plans = currentTeamId ? (currentTeam?.plans || []) : teams.flatMap(t => t.plans);
+    const songs = currentTeamId ? (currentTeam?.songs || []) : teams.flatMap(t => t.songs);
     const nextService = plans
         .filter(plan => new Date(plan.date) >= new Date(new Date().setHours(0, 0, 0, 0)))
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0];

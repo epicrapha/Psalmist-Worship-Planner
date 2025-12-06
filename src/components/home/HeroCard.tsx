@@ -15,7 +15,11 @@ export function HeroCard({ nextService }: HeroCardProps) {
     const navigate = useNavigate();
     const { teams, currentTeamId, user } = useAppStore();
     const currentTeam = teams.find(t => t.id === currentTeamId);
-    const team = currentTeam?.members || [];
+    const allMembers = currentTeamId ? (currentTeam?.members || []) : teams.flatMap(t => t.members);
+
+    // Get members assigned to this specific event
+    const assignedMemberIds = nextService.team?.map(t => t.memberId) || [];
+    const team = allMembers.filter(m => assignedMemberIds.includes(m.id));
     const serviceDate = new Date(nextService.date);
 
     // Mock assignments for the current user
